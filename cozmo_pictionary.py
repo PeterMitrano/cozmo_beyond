@@ -3,9 +3,16 @@
 '''Cozmo Pictionary'''
 
 import sys
-from cozmo.util import degrees, distance_mm
+from cozmo.util import degrees, distance_mm, speed_mmps
 import asyncio
 import cozmo
+
+class States:
+    FINDING_CUBE = "FINDING CUBE"
+    LIFTING = "LIFTING"
+    GOING_TO_CUBE = "GOING TO CUBE"
+    READY = "READY"
+    DONE = "DONE"
 
 def find_cube(robot, timeout=30):
     # Move lift down and tilt the head up
@@ -28,24 +35,50 @@ def find_cube(robot, timeout=30):
     return cube
 
 def go_to_cube(robot, cube):
-    action = robot.go_to_object(cube, distance_mm(60.0))
+    action = robot.go_to_object(cube, distance_mm(65.0))
     action.wait_for_completed()
-    print("Completed action: result = %s" % action)
-    print("Done.")
 
+    if action._state == cozmo.action.ACTION_SUCCEEDED:
+        # get a bit closer to the cube
+        robot.drive_straight(distance_mm(20), speed_mmps(10)).wait_for_completed()
+        return True
+    else:
+        # cozmo got confused, back up a bit
+        robot.drive_straight(distance_mm(-50), speed_mmps(30)).wait_for_completed()
+        return False
 
 def run(sdk_conn):
     robot = sdk_conn.wait_for_robot()
 
-    # go to nearest cube
-    cube = find_cube(robot)
-    if cube:
-        # play an "I'm ready" animation
-        robot.play_anim('anim_keepaway_getready_02').wait_for_completed()
-        go_to_cube(robot, cube)
+    robot.abort_all_actions()
 
-        done = False
-        while not done:
+    state = States.FINDING_CUBE
+    while True:
+        print(state)
+        if state == States.FINDING_CUBE:
+            # go to nearest cube
+            cube = find_cube(robot)
+            if cube:
+                state = States.LIFTING
+
+        if state == States.LIFTING:
+            # lift the lift
+            action = robot.set_lift_height(1, 5, 5, 0.1)
+            action.wait_for_completed()
+
+            if action._state == cozmo.action.ACTION_SUCCEEDED:
+                state = States.GOING_TO_CUBE
+            else:
+                print("action failed: %s" % action)
+
+        elif state == States.GOING_TO_CUBE:
+            success = go_to_cube(robot, cube)
+            if success:
+                state = States.READY
+            else:
+                state = States.FINDING_CUBE
+
+        elif state == States.READY:
             # take a picture
             print("taking picture")
 
@@ -55,10 +88,10 @@ def run(sdk_conn):
 
             # make the guess
             robot.say_text("Is it a taco").wait_for_completed()
-            done = True
-    else:
-        # abort mission
-        robot.play_anim('anim_keepaway_losegame_02').wait_for_completed()
+            state = States.DONE
+        else:
+            print("giving up.")
+            return
 
 if __name__ == '__main__':
     cozmo.setup_basic_logging()

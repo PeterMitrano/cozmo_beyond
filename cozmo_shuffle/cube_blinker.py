@@ -1,6 +1,7 @@
 import asyncio
 import cozmo
 
+
 class BlinkyCube(cozmo.objects.LightCube):
     '''Subclass LightCube and add a light-chaser effect.
 
@@ -27,6 +28,7 @@ class BlinkyCube(cozmo.objects.LightCube):
         '''
         if self._chaser:
             raise ValueError("Light chaser already running")
+
         async def _chaser():
             while True:
                 for i in range(4):
@@ -35,6 +37,7 @@ class BlinkyCube(cozmo.objects.LightCube):
                     cols[(i + 2) % 4] = light_color
                     self.set_light_corners(*cols)
                     await asyncio.sleep(0.3, loop=self._loop)
+
         self._chaser = asyncio.ensure_future(_chaser(), loop=self._loop)
 
     def stop_light_chaser(self):
@@ -42,4 +45,3 @@ class BlinkyCube(cozmo.objects.LightCube):
             self._chaser.cancel()
             self._chaser = None
             self.set_lights(cozmo.lights.off_light)
-

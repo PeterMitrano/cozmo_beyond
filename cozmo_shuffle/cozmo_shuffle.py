@@ -1,5 +1,4 @@
 #!/usr/bin/env python3
-
 '''Cozmo Shuffle'''
 
 import random
@@ -11,6 +10,7 @@ from cube_blinker import BlinkyCube
 
 # Make sure World knows how to instantiate the subclass
 cozmo.world.World.light_cube_factory = BlinkyCube
+
 
 class States:
     LOOKING_FOR_CUBES = "LOOKING FOR CUBES"
@@ -39,6 +39,7 @@ def small_random_angle(min_deg=-30, max_deg=30, step=2):
 def new_image_handler(evt, obj=None, tap_count=None, **kwargs):
     pass
 
+
 async def look_for_three_cubes(robot: cozmo.robot.Robot, existing_cubes=[]):
     cubes_found = existing_cubes
     # cube_colors = [cozmo.lights.green_light, cozmo.lights.blue_light, cozmo.lights.red_light]
@@ -48,7 +49,8 @@ async def look_for_three_cubes(robot: cozmo.robot.Robot, existing_cubes=[]):
         # check for cubes
         # note this timeout means very little. If we see a cube and it's the wrong one,
         # it will return immediately with cube = None, not wait for timeout.
-        cube = await robot.world.wait_for_observed_light_cube(timeout=5, include_existing=False)
+        cube = await robot.world.wait_for_observed_light_cube(
+            timeout=5, include_existing=False)
 
         # if we found something new, add it and tell friend
         if cube not in cubes_found:
@@ -57,7 +59,8 @@ async def look_for_three_cubes(robot: cozmo.robot.Robot, existing_cubes=[]):
             # indicate to friend that we found the blocks
             cube.set_lights(cube_colors[cubes_count])
             cubes_count += 1
-            found_block_anim = robot.play_anim_trigger(cozmo.anim.Triggers.BlockReact)
+            found_block_anim = robot.play_anim_trigger(
+                cozmo.anim.Triggers.BlockReact)  # pylint: disable=no-member
             await found_block_anim.wait_for_completed()
 
         # we're done once we have all three (unique) cubes
@@ -67,19 +70,25 @@ async def look_for_three_cubes(robot: cozmo.robot.Robot, existing_cubes=[]):
 
     return None
 
-async def wait_for_three_cubes(robot : cozmo.robot.Robot):
+
+async def wait_for_three_cubes(robot: cozmo.robot.Robot):
     cubes = []
     look_around_gen = small_random_angle(-20, 20, 2)
     while True:
         try:
-            cubes = await asyncio.wait_for(look_for_three_cubes(robot, existing_cubes=cubes), timeout=10)
+            cubes = await asyncio.wait_for(
+                look_for_three_cubes(
+                    robot, existing_cubes=cubes), timeout=10)
             return cubes
         except asyncio.TimeoutError:
             # tell friend we're confused and look around a bit
             robot.abort_all_actions()
-            await robot.play_anim("anim_memorymatch_failhand_01").wait_for_completed()
+            await robot.play_anim("anim_memorymatch_failhand_01"
+                                  ).wait_for_completed()
             robot_angle = next(look_around_gen)
-            await robot.turn_in_place(degrees(robot_angle)).wait_for_completed()
+            await robot.turn_in_place(degrees(robot_angle)).wait_for_completed(
+            )
+
 
 async def run(sdk_conn):
     robot = await sdk_conn.wait_for_robot()
@@ -87,7 +96,8 @@ async def run(sdk_conn):
 
     # setup camera
     robot.camera.image_stream_enabled = True
-    robot.camera.add_event_handler(cozmo.robot.camera.EvtNewRawCameraImage, new_image_handler)
+    robot.camera.add_event_handler(cozmo.robot.camera.EvtNewRawCameraImage,
+                                   new_image_handler)
     await robot.set_head_angle(degrees(0)).wait_for_completed()
     robot.move_lift(-1)
 
@@ -123,16 +133,19 @@ async def run(sdk_conn):
             # tell friend we're ready with an animation, and by flashing the cubes
             for cube in cubes:
                 cube.set_lights(cozmo.lights.white_light)
-            await robot.play_anim("anim_speedtap_findsplayer_01").wait_for_completed()
+            await robot.play_anim("anim_speedtap_findsplayer_01"
+                                  ).wait_for_completed()
             state = States.WATCHING
 
         elif state == States.WATCHING:
-            await robot.play_anim("anim_hiking_edgesquintgetin_01").wait_for_completed()
+            await robot.play_anim("anim_hiking_edgesquintgetin_01"
+                                  ).wait_for_completed()
 
             look_around_gen = small_random_angle()
             for i in range(5):
                 robot_angle = next(look_around_gen)
-                await robot.turn_in_place(degrees(robot_angle)).wait_for_completed()
+                await robot.turn_in_place(degrees(robot_angle)
+                                          ).wait_for_completed()
             print("done.")
             state = States.THINKING
 
@@ -147,7 +160,8 @@ async def run(sdk_conn):
 
         elif state == States.GUESSING:
             # show friend we're ready to guess
-            await robot.play_anim("anim_rtpkeepaway_ideatoplay_02").wait_for_completed()
+            await robot.play_anim("anim_rtpkeepaway_ideatoplay_02"
+                                  ).wait_for_completed()
             state = States.DONE
 
         elif state == States.DONE:

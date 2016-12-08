@@ -39,12 +39,6 @@ def small_random_angle(min_deg=-30, max_deg=30, step=2):
 def new_image_handler(evt, obj=None, tap_count=None, **kwargs):
     pass
 
-
-def cube_tapped_handler(evt, obj=None, tap_count=None, **kwargs):
-    print("a cube was tapped!")
-    print(evt)
-    print(tap_count)
-
 async def look_for_three_cubes(robot: cozmo.robot.Robot, existing_cubes=[]):
     cubes_found = existing_cubes
     # cube_colors = [cozmo.lights.green_light, cozmo.lights.blue_light, cozmo.lights.red_light]
@@ -78,10 +72,11 @@ async def wait_for_three_cubes(robot : cozmo.robot.Robot):
     look_around_gen = small_random_angle(-20, 20, 2)
     while True:
         try:
-            cubes = await asyncio.wait_for(look_for_three_cubes(robot, existing_cubes=cubes), timeout=8)
+            cubes = await asyncio.wait_for(look_for_three_cubes(robot, existing_cubes=cubes), timeout=10)
             return cubes
         except asyncio.TimeoutError:
             # tell friend we're confused and look around a bit
+            robot.abort_all_actions()
             await robot.play_anim("anim_memorymatch_failhand_01").wait_for_completed()
             robot_angle = next(look_around_gen)
             await robot.turn_in_place(degrees(robot_angle)).wait_for_completed()
@@ -106,8 +101,23 @@ async def run(sdk_conn):
 
         elif state == States.PICKING_CUBE:
             # friend picks the cube we're going to track
+            tap_events = []
             for cube in cubes:
-                cube.add_event_handler(cozmo.objects.EvtObjectTapped, cube_tapped_handler)
+                cube.start_light_chaser(cozmo.lights.blue_light)
+                tap_events.append(cube.wait_for_tap())
+
+            tap_event = await cozmo.event.wait_for_first(*tap_events)
+            friend_cube = tap_event.obj
+            friend_cube.stop_light_chaser()
+            friend_cube.set_lights(cozmo.lights.blue_light)
+            cubes.remove(friend_cube)
+
+            # we've got the right one. turn the others off
+            for cube in cubes:
+                cube.stop_light_chaser()
+                cube.set_lights(cozmo.lights.off_light)
+
+            state = States.READY_ANIM
 
         elif state == States.READY_ANIM:
             # tell friend we're ready with an animation, and by flashing the cubes
@@ -140,8 +150,11 @@ async def run(sdk_conn):
             await robot.play_anim("anim_rtpkeepaway_ideatoplay_02").wait_for_completed()
             state = States.DONE
 
+        elif state == States.DONE:
+            print("waiting for event loop to finish")
+            await asyncio.sleep(10)
         else:
-            print("giving up.")
+            print("ABORTING")
             return
 
 

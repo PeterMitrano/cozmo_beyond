@@ -76,7 +76,7 @@ def small_random_angle(min_deg=-30, max_deg=30, step=2):
         yield current_angle, turn_angle
 
 
-async def look_for_three_cubes(robot: cozmo.robot.Robot, existing_cubes=[]):
+async def look_for_three_cubes(robot: cozmo.robot.Robot, existing_cubes=[], play_anim=False, show_colors=True):
     cubes_found = existing_cubes
     # cube_colors = [cozmo.lights.green_light, cozmo.lights.blue_light, cozmo.lights.red_light]
     cube_colors = 3 * [cozmo.lights.green_light]
@@ -92,10 +92,12 @@ async def look_for_three_cubes(robot: cozmo.robot.Robot, existing_cubes=[]):
             cubes_found.append(cube)
 
             # indicate to friend that we found the blocks
-            cube.set_lights(cube_colors[cubes_count])
+            if show_colors:
+                cube.set_lights(cube_colors[cubes_count])
+            if play_anim:
+                found_block_anim = robot.play_anim_trigger(cozmo.anim.Triggers.BlockReact)  # pylint: disable=no-member
+                await found_block_anim.wait_for_completed()
             cubes_count += 1
-            # found_block_anim = robot.play_anim_trigger(cozmo.anim.Triggers.BlockReact)  # pylint: disable=no-member
-            # await found_block_anim.wait_for_completed()
 
         # we're done once we have all three (unique) cubes
         if len(cubes_found) == 3:
@@ -105,14 +107,14 @@ async def look_for_three_cubes(robot: cozmo.robot.Robot, existing_cubes=[]):
     return None
 
 
-async def wait_for_three_cubes(robot: cozmo.robot.Robot):
+async def wait_for_three_cubes(robot: cozmo.robot.Robot, play_anim=False, show_colors=True):
     cubes = []
     look_around_gen = small_random_angle(-20, 20, 2)
     while True:
         try:
             cubes = await asyncio.wait_for(
                 look_for_three_cubes(
-                    robot, existing_cubes=cubes), timeout=10)
+                    robot, existing_cubes=cubes, play_anim=play_anim, show_colors=show_colors), timeout=10)
             return cubes
         except asyncio.TimeoutError:
             # tell friend we're confused and look around a bit
@@ -138,7 +140,7 @@ async def run(sdk_conn):
     while True:
         print(state)
         if state == States.LOOKING_FOR_CUBES:
-            cubes = await wait_for_three_cubes(robot)
+            cubes = await wait_for_three_cubes(robot, play_anim=True)
             state = States.PICKING_CUBE
 
         elif state == States.PICKING_CUBE:
@@ -177,25 +179,25 @@ async def run(sdk_conn):
             # turn around a bit while we watch
             look_around_gen = small_random_angle()
             current_angle = 0
-            for i in range(5):
+            for i in range(3):
                 current_angle, robot_angle = next(look_around_gen)
                 await robot.turn_in_place(degrees(robot_angle)).wait_for_completed()
 
             # turn back to center
             await robot.turn_in_place(degrees(-current_angle)).wait_for_completed()
-            print("done watching")
 
+            state = States.REFINDING_CUBES
+
+        elif state == States.REFINDING_CUBES:
+            # try to find the cubes again
+            cubes = await wait_for_three_cubes(robot, show_colors=False)
+            # determine the order
             state = States.GUESSING
-
-        # elif state == States.REFINDING_CUBES:
-        #     # try to find the cubes again
-        #     cubes = await wait_for_three_cubes(robot)
-        #     # determine the order
-        #     state = States.GUESSING
 
         elif state == States.GUESSING:
             # show friend we're ready to guess
             # await robot.play_anim("anim_launch_firsttimewakeup_helloplayer").wait_for_completed()
+            await robot.play_anim("anim_meetcozmo_lookface_02").wait_for_completed()
 
             # pick a cube
             # use friend_cube_idx
@@ -213,7 +215,6 @@ async def run(sdk_conn):
             state = States.DONE
 
         elif state == States.DONE:
-            print("waiting for event loop to finish")
             await asyncio.sleep(10)
         else:
             print("ABORTING")

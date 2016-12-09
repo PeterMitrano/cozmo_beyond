@@ -5,7 +5,7 @@ import random
 import sys
 import cozmo
 import asyncio
-from cozmo.util import degrees
+from cozmo.util import degrees, radians
 from cube_blinker import BlinkyCube
 
 from math import cos
@@ -129,7 +129,7 @@ async def run(sdk_conn):
     await robot.set_head_angle(degrees(0)).wait_for_completed()
     robot.move_lift(-1)
 
-    correct_guess_rate = 0.95
+    correct_guess_rate = 0.75
 
     state = States.LOOKING_FOR_CUBES
     cubes = []
@@ -206,9 +206,8 @@ async def run(sdk_conn):
                 guessed_cube = non_friend_cubes[random.randint(0, 1)]
                 print("guessing wrong")
 
-            print(guessed_cube)
             turn_to_face_angle = angle_to_cube(robot.pose, guessed_cube)
-            await robot.turn_in_place(degrees(turn_to_face_angle)).wait_for_completed()
+            await robot.turn_in_place(radians(turn_to_face_angle)).wait_for_completed()
             await robot.play_anim("anim_pounce_long_01").wait_for_completed()
             robot.move_head(1)
             state = States.DONE

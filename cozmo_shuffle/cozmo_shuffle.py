@@ -127,7 +127,7 @@ async def wait_for_three_cubes(robot: cozmo.robot.Robot, play_anim=False, show_c
         try:
             cubes = await asyncio.wait_for(
                 look_for_three_cubes(
-                    robot, existing_cubes=cubes, play_anim=play_anim, show_colors=show_colors), timeout=10)
+                    robot, existing_cubes=cubes, play_anim=play_anim, show_colors=show_colors), timeout=5)
             return cubes
         except asyncio.TimeoutError:
             # tell friend we're confused and look around a bit
@@ -144,7 +144,7 @@ async def run(sdk_conn):
     await robot.set_head_angle(degrees(0)).wait_for_completed()
     robot.move_lift(-1)
 
-    correct_guess_rate = 0.75
+    correct_guess_rate = 0.50
 
     state = States.LOOKING_FOR_CUBES
     cubes = []
@@ -153,7 +153,7 @@ async def run(sdk_conn):
     while True:
         print(state)
         if state == States.LOOKING_FOR_CUBES:
-            cubes = await wait_for_three_cubes(robot, play_anim=True)
+            cubes = await wait_for_three_cubes(robot)
             state = States.PICKING_CUBE
 
         elif state == States.PICKING_CUBE:
@@ -218,7 +218,6 @@ async def run(sdk_conn):
             await robot.play_anim("anim_meetcozmo_lookface_02").wait_for_completed()
 
             # pick a cube
-            # use friend_cube_idx
             if random.random() < correct_guess_rate:
                 guessed_cube = friend_cube
                 state = States.CORRECT
@@ -248,7 +247,6 @@ async def run(sdk_conn):
             state = States.DONE
 
         elif state == States.DONE:
-            print("ABORTING")
             await asyncio.sleep(1)
             return
 

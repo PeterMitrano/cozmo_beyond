@@ -21,6 +21,16 @@ class BlinkyCube(cozmo.objects.LightCube):
     def __init__(self, *a, **kw):
         super().__init__(*a, **kw)
         self._chaser = None
+        self.current_light = cozmo.lights.off_light
+
+    async def blink_once(self, light_color):
+        self.set_lights(cozmo.lights.off_light)
+        await asyncio.sleep(0.05, loop=self._loop)
+        self.set_lights(light_color)
+        await asyncio.sleep(0.3, loop=self._loop)
+        self.set_lights(cozmo.lights.off_light)
+        await asyncio.sleep(0.05, loop=self._loop)
+        self.set_lights(self.current_light)
 
     def start_light_chaser(self, light_color):
         '''Cycles the lights around the cube with 1 corner lit up,
@@ -31,17 +41,23 @@ class BlinkyCube(cozmo.objects.LightCube):
 
         async def _chaser():
             while True:
+                self.current_light = light_color
                 for i in range(4):
                     cols = [cozmo.lights.off_light] * 4
                     cols[i] = light_color
                     cols[(i + 2) % 4] = light_color
                     self.set_light_corners(*cols)
-                    await asyncio.sleep(0.3, loop=self._loop)
+                    await asyncio.sleep(0.2, loop=self._loop)
 
         self._chaser = asyncio.ensure_future(_chaser(), loop=self._loop)
 
     def stop_light_chaser(self):
         if self._chaser:
+            self.current_light = cozmo.lights.off_light
             self._chaser.cancel()
             self._chaser = None
             self.set_lights(cozmo.lights.off_light)
+
+    def set_light(self, light):
+        self.current_light = light
+        self.set_lights(light)

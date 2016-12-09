@@ -5,7 +5,7 @@ import random
 import sys
 import cozmo
 import asyncio
-from cozmo.util import degrees, radians
+from cozmo.util import degrees, radians, distance_mm, speed_mmps
 from cube_blinker import BlinkyCube
 
 from math import cos
@@ -78,7 +78,6 @@ def small_random_angle(min_deg=-30, max_deg=30, step=2):
 
 async def look_for_three_cubes(robot: cozmo.robot.Robot, existing_cubes=[], play_anim=False, show_colors=True):
     cubes_found = existing_cubes
-    # cube_colors = [cozmo.lights.green_light, cozmo.lights.blue_light, cozmo.lights.red_light]
     cube_colors = 3 * [cozmo.lights.green_light]
     cubes_count = len(cubes_found)
     while True:
@@ -93,7 +92,7 @@ async def look_for_three_cubes(robot: cozmo.robot.Robot, existing_cubes=[], play
 
             # indicate to friend that we found the blocks
             if show_colors:
-                cube.set_lights(cube_colors[cubes_count])
+                await cube.blink_once(cube_colors[cubes_count])
             if play_anim:
                 found_block_anim = robot.play_anim_trigger(cozmo.anim.Triggers.BlockReact)  # pylint: disable=no-member
                 await found_block_anim.wait_for_completed()
@@ -153,22 +152,21 @@ async def run(sdk_conn):
             tap_event = await cozmo.event.wait_for_first(*tap_events)
             friend_cube = tap_event.obj
             friend_cube.stop_light_chaser()
-            friend_cube.set_lights(cozmo.lights.blue_light)
+            friend_cube.set_light(cozmo.lights.blue_light)
             cubes.remove(friend_cube)
             non_friend_cubes = cubes
 
             # we've got the right one. turn the others off
             for cube in cubes:
                 cube.stop_light_chaser()
-                cube.set_lights(cozmo.lights.off_light)
+                cube.set_light(cozmo.lights.off_light)
 
             state = States.READY_ANIM
-            print(friend_cube)
 
         elif state == States.READY_ANIM:
             # tell friend we're ready with an animation, and by flashing the cubes
             for cube in cubes:
-                cube.set_lights(cozmo.lights.white_light)
+                cube.set_light(cozmo.lights.white_light)
             await robot.play_anim("anim_speedtap_findsplayer_01").wait_for_completed()
 
             state = States.WATCHING
@@ -190,6 +188,8 @@ async def run(sdk_conn):
 
         elif state == States.REFINDING_CUBES:
             # try to find the cubes again
+            # back up so we are more likely to see them
+            await robot.drive_straight(distance_mm(-50), speed_mmps(50)).wait_for_completed()
             cubes = await wait_for_three_cubes(robot, show_colors=False)
             # determine the order
             state = States.GUESSING
@@ -203,20 +203,33 @@ async def run(sdk_conn):
             # use friend_cube_idx
             if random.random() < correct_guess_rate:
                 guessed_cube = friend_cube
-                print("guessing right")
+                state = States.CORRECT
             else:
                 guessed_cube = non_friend_cubes[random.randint(0, 1)]
-                print("guessing wrong")
+                state = States.INCORRECT
 
             turn_to_face_angle = angle_to_cube(robot.pose, guessed_cube)
             await robot.turn_in_place(radians(turn_to_face_angle)).wait_for_completed()
             await robot.play_anim("anim_pounce_long_01").wait_for_completed()
             robot.move_head(1)
+
+        elif state == States.INCORRECT:
+            for cube in cubes:
+                cube.set_light(cozmo.lights.red_light)
+            await robot.play_anim("anim_rtpmemory_match_no_01").wait_for_completed()
+            state = States.DONE
+
+        elif state == States.CORRECT:
+            pre_celebration_pose = robot.pose
+            for cube in cubes:
+                await cube.blink_once(cozmo.lights.green_light)
+            await robot.play_anim("anim_speedtap_wingame_intensity02_01").wait_for_completed()
+            for cube in cubes:
+                cube.stop_light_chaser()
+            await robot.go_to_pose(pre_celebration_pose, relative_to_robot=False).wait_for_completed()
             state = States.DONE
 
         elif state == States.DONE:
-            await asyncio.sleep(10)
-        else:
             print("ABORTING")
             return
 

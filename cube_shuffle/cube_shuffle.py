@@ -208,7 +208,7 @@ async def run(sdk_conn):
         elif state == States.REFINDING_CUBES:
             # try to find the cubes again
             # back up so we are more likely to see them
-            await robot.drive_straight(distance_mm(-50), speed_mmps(80)).wait_for_completed()
+            await robot.drive_straight(distance_mm(-40), speed_mmps(90)).wait_for_completed()
             cubes = await wait_for_three_cubes(robot, show_colors=False)
             # determine the order
             state = States.GUESSING

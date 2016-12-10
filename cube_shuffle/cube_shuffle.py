@@ -214,9 +214,6 @@ async def run(sdk_conn):
             state = States.GUESSING
 
         elif state == States.GUESSING:
-            # show friend we're ready to guess
-            await robot.play_anim("anim_meetcozmo_lookface_02").wait_for_completed()
-
             # pick a cube
             if random.random() < correct_guess_rate:
                 guessed_cube = friend_cube

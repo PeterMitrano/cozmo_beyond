@@ -103,9 +103,9 @@ class Pipeline:
             A numpy.ndarray with the parts that are the same in black.
         """
         if (last_image.shape == input.shape):
-            output =  cv2.absdiff(input, last_image)
+            output = cv2.absdiff(input, last_image)
         else:
-            output = numpy.ndarray(shape=input.shape)
+            output = numpy.ndarray(shape=input.shape, dtype=input.dtype)
         return input, output
 
     @staticmethod

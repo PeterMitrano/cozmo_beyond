@@ -26,13 +26,15 @@ class StaringContest(cozmo.annotate.Annotator):
         # top left pixel is 0,0
         self.eye_region_of_interest = [Pt(0, 0), Pt(320, 240)]
         self.enabled = True
+        self.has_roi = False
 
     def new_image_handler(self, evt, obj=None, tap_count=None, **kwargs):
-        bounds = (self.eye_region_of_interest[0].x, self.eye_region_of_interest[0].y,
-                  self.eye_region_of_interest[1].x, self.eye_region_of_interest[1].y)
-        roi = evt.image.crop(bounds)
-        # print ("saved image")
-        # roi.save('roi.png', "PNG")
+        if self.has_roi:
+            bounds = (self.eye_region_of_interest[0].x, self.eye_region_of_interest[0].y,
+                      self.eye_region_of_interest[1].x, self.eye_region_of_interest[1].y)
+            roi = evt.image.crop(bounds)
+
+            # GRIP!!!!
 
     @cozmo.event.filter_handler(cozmo.faces.EvtFaceObserved)
     def observed_face_handler(self, evt, obj=None, tap_count=None, **kwargs):
@@ -40,11 +42,12 @@ class StaringContest(cozmo.annotate.Annotator):
         eye_padding = 20
         scale = 2.15
         if len(evt.face.left_eye) > 2 and len(evt.face.right_eye) > 2:
-            roi_x1 = max(evt.face.left_eye[0].x - eye_padding, 0) * scale
-            roi_y1 = max(evt.face.left_eye[0].y - eye_padding, 0) * scale
-            roi_x2 = min(evt.face.right_eye[2].x + eye_padding, 320) * scale
-            roit_y2 = min(evt.face.right_eye[2].y + eye_padding, 240) * scale
+            roi_x1 = round(max(evt.face.left_eye[0].x - eye_padding, 0) * scale)
+            roi_y1 = round(max(evt.face.left_eye[0].y - eye_padding, 0) * scale)
+            roi_x2 = round(min(evt.face.right_eye[2].x + eye_padding, 320) * scale)
+            roit_y2 = round(min(evt.face.right_eye[2].y + eye_padding, 240) * scale)
             self.eye_region_of_interest = [Pt(roi_x1, roi_y1), Pt(roi_x2, roit_y2)]
+            self.has_roi = True
 
     async def run(self, sdk_conn: cozmo.conn.CozmoConnection):
         robot = await sdk_conn.wait_for_robot()

@@ -4,26 +4,35 @@ import asyncio
 import cv2
 import BlinkPipeline
 
-def new_image_handler(evt, obj=None, tap_count=None, **kwargs):
-    #
-    evt.image
 
-@cozmo.event.filter_handler(cozmo.faces.EvtFaceObserved)
-def observed_face_handler(evt, obj=None, tap_count=None, **kwargs):
-    print(evt.face.left_eye)
-    print(evt.face.right_eye)
+class StaringContest:
 
+    def __init__(self):
+        # order: top left x, top left y, bottom right x, bottom right y
+        # top left pixel is 0,0
+        self.eye_region_of_interest = [0, 0, 320, 240]
 
-async def run(sdk_conn : cozmo.conn.CozmoConnection):
-    robot = await sdk_conn.wait_for_robot()
-    robot.add_event_handler(cozmo.faces.EvtFaceObserved, observed_face_handler)
-    robot.camera.image_stream_enabled = True
-    robot.camera.add_event_handler(cozmo.robot.camera.EvtNewRawCameraImage, new_image_handler)
+    def new_image_handler(self, evt, obj=None, tap_count=None, **kwargs):
+        roi = evt.image.crop(*self.eye_region_of_interest)
+        roi.save('roi.png', "PNG")
+
+    @cozmo.event.filter_handler(cozmo.faces.EvtFaceObserved)
+    def observed_face_handler(self, evt, obj=None, tap_count=None, **kwargs):
+        self.eye_region_of_interest = [evt.face.left_eye[0][0], evt.face.left_eye[0][1], evt.face.right_eye[2][0],
+                                       evt.face.right_eye[2][1]]
+
+    async def run(self, sdk_conn: cozmo.conn.CozmoConnection):
+        robot = await sdk_conn.wait_for_robot()
+        robot.add_event_handler(cozmo.faces.EvtFaceObserved, self.observed_face_handler)
+        robot.camera.image_stream_enabled = True
+        robot.camera.add_event_handler(cozmo.robot.camera.EvtNewRawCameraImage, self.new_image_handler)
+
 
 if __name__ == "__main__":
     cozmo.setup_basic_logging()
 
     try:
-        cozmo.connect(run)
+        sc = StaringContest()
+        cozmo.connect(sc.run)
     except cozmo.ConnectionError as e:
         sys.exit("Connection error: %s" % e)

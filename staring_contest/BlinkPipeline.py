@@ -20,12 +20,12 @@ class Pipeline:
 
         self.__blur_input = self.threshold_moving_output
         self.__blur_type = BlurType.Box_Blur
-        self.__blur_radius = 13.51351351351352
+        self.__blur_radius = 6
         self.blur_output = None
 
         self.__cv_threshold_src = self.blur_output
-        self.__cv_threshold_thresh = 4.0
-        self.__cv_threshold_maxval = 200.0
+        self.__cv_threshold_thresh = 12.0
+        self.__cv_threshold_maxval = 255.0
         self.__cv_threshold_type = cv2.THRESH_BINARY
         self.cv_threshold_output = None
 
@@ -61,13 +61,13 @@ class Pipeline:
         self.__cv_threshold_src = self.blur_output
         (self.cv_threshold_output ) = self.__cv_threshold(self.__cv_threshold_src, self.__cv_threshold_thresh, self.__cv_threshold_maxval, self.__cv_threshold_type)
 
-        # #Step CV_adaptiveThreshold0:
-        # self.__cv_adaptivethreshold_src = self.cv_threshold_output
-        # (self.cv_adaptivethreshold_output ) = self.__cv_adaptivethreshold(self.__cv_adaptivethreshold_src, self.__cv_adaptivethreshold_maxvalue, self.__cv_adaptivethreshold_adaptivemethod, self.__cv_adaptivethreshold_thresholdtype, self.__cv_adaptivethreshold_blocksize, self.__cv_adaptivethreshold_c)
-        #
-        # #Step Find_Blobs0:
-        # self.__find_blobs_input = self.cv_adaptivethreshold_output
-        # (self.find_blobs_output ) = self.__find_blobs(self.__find_blobs_input, self.__find_blobs_min_area, self.__find_blobs_circularity, self.__find_blobs_dark_blobs)
+        #Step CV_adaptiveThreshold0:
+        self.__cv_adaptivethreshold_src = self.cv_threshold_output
+        (self.cv_adaptivethreshold_output ) = self.__cv_adaptivethreshold(self.__cv_adaptivethreshold_src, self.__cv_adaptivethreshold_maxvalue, self.__cv_adaptivethreshold_adaptivemethod, self.__cv_adaptivethreshold_thresholdtype, self.__cv_adaptivethreshold_blocksize, self.__cv_adaptivethreshold_c)
+
+        #Step Find_Blobs0:
+        self.__find_blobs_input = self.cv_adaptivethreshold_output
+        (self.find_blobs_output ) = self.__find_blobs(self.__find_blobs_input, self.__find_blobs_min_area, self.__find_blobs_circularity, self.__find_blobs_dark_blobs)
 
     def set_source0(self, value):
         """Sets source0 to given value checking for correct type.

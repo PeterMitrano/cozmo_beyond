@@ -32,13 +32,11 @@ class StaringContest(cozmo.annotate.Annotator):
         # when we get a new face detection, save the area around the eyes
         eye_padding = 20
 
-        scale = 0.6
-
         if len(evt.face.left_eye) > 2 and len(evt.face.right_eye) > 2:
-            roi_x1 = round(max(evt.face.left_eye[0].x - eye_padding, 0) * scale)
-            roi_y1 = round(max(evt.face.left_eye[0].y - eye_padding, 0) * scale)
-            roi_x2 = round(min(evt.face.right_eye[2].x + eye_padding, 320) * scale)
-            roit_y2 = round(min(evt.face.right_eye[2].y + eye_padding, 240) * scale)
+            roi_x1 = round(max(evt.face.left_eye[0].x - eye_padding, 0))
+            roi_y1 = round(max(evt.face.left_eye[0].y - eye_padding, 0))
+            roi_x2 = round(min(evt.face.right_eye[2].x + eye_padding, 320))
+            roit_y2 = round(min(evt.face.right_eye[2].y + eye_padding, 240))
             self.eye_region_of_interest = [Pt(roi_x1, roi_y1), Pt(roi_x2, roit_y2)]
             self.has_roi = True
 
@@ -67,8 +65,8 @@ class StaringContest(cozmo.annotate.Annotator):
 
     def apply(self, image, scale):
         blue = ImageColor.getrgb("#f00")
-        scale = scale/0.625
         print(scale)
+        #scale = scale/0.625
         roi = [Pt(scale * self.eye_region_of_interest[0].x, scale * self.eye_region_of_interest[0].y),
             Pt(scale * self.eye_region_of_interest[1].x, scale * self.eye_region_of_interest[0].y),
             Pt(scale * self.eye_region_of_interest[1].x, scale * self.eye_region_of_interest[1].y),

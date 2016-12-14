@@ -1,12 +1,13 @@
+import queue
 import sys
 import cozmo
 from cozmo.util import degrees
 import asyncio
 import numpy
 import cv2
-from PIL import ImageColor, Image
+from PIL import ImageColor
+from GripWrapper import GripWrapper
 
-import BlinkPipeline
 
 class Pt():
     def __init__(self, x, y):
@@ -25,12 +26,18 @@ class StaringContest(cozmo.annotate.Annotator):
 
     def __init__(self):
         self.eye_region_of_interest = [Pt(0, 0), Pt(320, 240)]
+        self.blob_history = []
         self.enabled = True
+        self.eye_padding = 10
         self.has_roi = False
-        self.pipeline = BlinkPipeline.Pipeline()
+        self.pipeline = GripWrapper()
+        self.blinks = 0
         self.pipeline_completions = 0
-        self.video_writer = cv2.VideoWriter('output.avi', cv2.VideoWriter_fourcc(*'XVID'), 15, (240, 320))
-        self.blank_frame = numpy.zeros([240, 320])
+        self.w = 320
+        self.h = 240
+        self.video_writer = cv2.VideoWriter('output.avi', cv2.VideoWriter_fourcc(*'XVID'), 15, (self.w, self.h))
+        self.blank_frame = numpy.zeros([self.h, self.w, 3]).astype(numpy.uint8)
+        self.done = False
 
     def new_image_handler(self, evt, obj=None, tap_count=None, **kwargs):
         if self.has_roi:
@@ -38,30 +45,56 @@ class StaringContest(cozmo.annotate.Annotator):
                       self.eye_region_of_interest[1].x, self.eye_region_of_interest[1].y)
             cropped_image = evt.image.crop(bounds)
             roi = numpy.array(cropped_image, dtype=numpy.uint8)
+            # go from 3 channel image to 1 channel
+            new_roi = []
+            for row in roi:
+                new_col = []
+                for col in row:
+                    new_col.append(col[0])
+                new_roi.append(new_col)
+            roi = numpy.array(new_roi)
 
             # GRIP time!!!!
-            self.pipeline.set_source0(roi)
-            self.pipeline.process()
-            frame = self.pipeline.threshold_moving_output
-            print(self.blank_frame.shape)
-            self.video_writer.write(self.blank_frame)
+            (output_image, blink) = self.pipeline.run(roi)
+            self.blob_history.append(blink)
 
-            self.pipeline_completions += 1
-            print(self.pipeline_completions)
+            # limited blob history
+            if len(self.blob_history) > 5:
+                self.blob_history = self.blob_history[1:]
+
+            if self.blob_history == [0, 0, 1, 0, 0]:
+                print("BLINK! %i" % self.blinks)
+                self.blinks += 1
+
+            # go from 1 channel image to 3 channel
+            # new_output_image = []
+            # for row in output_image:
+            #     new_col = []
+            #     for col in row:
+            #         new_col.append([col, col, col]) # 3 channel
+            #     new_output_image.append(new_col)
+            # output_image = numpy.array(new_output_image)
+            # padd_h = self.h - output_image.shape[0]
+            # padd_w = self.w - output_image.shape[1]
+            # padding = ((0, padd_h), (0, padd_w), (0, 0))
+            # padded_output_image = numpy.pad(output_image, padding, 'constant')
+
+            # for debugging, write to video
+            # self.video_writer.write(padded_output_image)
+            # self.pipeline_completions += 1
+
+            # filter out the blobs
 
     @cozmo.event.filter_handler(cozmo.faces.EvtFaceObserved)
     def observed_face_handler(self, evt, obj=None, tap_count=None, **kwargs):
         # when we get a new face detection, save the area around the eyes
-        eye_padding = 20
-
-        scale = 0.6
 
         if len(evt.face.left_eye) > 2 and len(evt.face.right_eye) > 2:
-            roi_x1 = round(max(evt.face.left_eye[0].x - eye_padding, 0) * scale)
-            roi_y1 = round(max(evt.face.left_eye[0].y - eye_padding, 0) * scale)
-            roi_x2 = round(min(evt.face.right_eye[2].x + eye_padding, 320) * scale)
-            roit_y2 = round(min(evt.face.right_eye[2].y + eye_padding, 240) * scale)
-            self.eye_region_of_interest = [Pt(roi_x1, roi_y1), Pt(roi_x2, roit_y2)]
+            roi_x1 = round(max(evt.face.left_eye[0].x - self.eye_padding, 0))
+            roi_y1 = round(max(evt.face.left_eye[0].y - self.eye_padding, 0))
+            roi_x2 = round(min(evt.face.right_eye[2].x + self.eye_padding, 320))
+            roit_y2 = round(min(evt.face.right_eye[2].y + self.eye_padding, 240))
+            self.self.eye_region_of_interest = [Pt(roi_x1, roi_y1), Pt(roi_x2, roit_y2)]
             self.has_roi = True
 
     async def run(self, sdk_conn: cozmo.conn.CozmoConnection):
@@ -72,25 +105,22 @@ class StaringContest(cozmo.annotate.Annotator):
             while True:
                 print("BATTERY LEVEL: %f" % robot.battery_voltage)
 
-
-        await robot.set_head_angle(degrees(40)).wait_for_completed()
+        robot.move_lift(-1)
         await asyncio.sleep(1)
+        await robot.set_head_angle(degrees(40)).wait_for_completed()
 
         robot.world.image_annotator.annotation_enabled = True
 
         # robot.add_event_handler(cozmo.faces.EvtFaceObserved, self.observed_face_handler)
-        face_evt = await robot.world.wait_for(cozmo.faces.EvtFaceObserved)
+        evt = await robot.world.wait_for(cozmo.faces.EvtFaceObserved)
 
         # when we get a new face detection, save the area around the eyes
-        eye_padding = 20
 
-        scale = 1
-
-        if len(face_evt.face.left_eye) > 2 and len(face_evt.face.right_eye) > 2:
-            roi_x1 = round(max(face_evt.face.left_eye[0].x - eye_padding, 0) * scale)
-            roi_y1 = round(max(face_evt.face.left_eye[0].y - eye_padding, 0) * scale)
-            roi_x2 = round(min(face_evt.face.right_eye[2].x + eye_padding, 320) * scale)
-            roit_y2 = round(min(face_evt.face.right_eye[2].y + eye_padding, 240) * scale)
+        if len(evt.face.left_eye) > 2 and len(evt.face.right_eye) > 2:
+            roi_x1 = round(max(evt.face.left_eye[0].x - self.eye_padding, 0))
+            roi_y1 = round(max(evt.face.left_eye[0].y - self.eye_padding, 0))
+            roi_x2 = round(min(evt.face.right_eye[2].x + self.eye_padding, 320))
+            roit_y2 = round(min(evt.face.right_eye[2].y + self.eye_padding, 240))
             self.eye_region_of_interest = [Pt(roi_x1, roi_y1), Pt(roi_x2, roit_y2)]
             self.has_roi = True
 
@@ -104,10 +134,10 @@ class StaringContest(cozmo.annotate.Annotator):
 
     def apply(self, image, scale):
         blue = ImageColor.getrgb("#f00")
-        roi = [Pt(self.eye_region_of_interest[0].x, self.eye_region_of_interest[0].y),
-            Pt(self.eye_region_of_interest[1].x, self.eye_region_of_interest[0].y),
-            Pt(self.eye_region_of_interest[1].x, self.eye_region_of_interest[1].y),
-        Pt(self.eye_region_of_interest[0].x, self.eye_region_of_interest[1].y)]
+        roi = [Pt(scale * self.eye_region_of_interest[0].x, scale * self.eye_region_of_interest[0].y),
+               Pt(scale * self.eye_region_of_interest[1].x, scale * self.eye_region_of_interest[0].y),
+               Pt(scale * self.eye_region_of_interest[1].x, scale * self.eye_region_of_interest[1].y),
+               Pt(scale * self.eye_region_of_interest[0].x, scale * self.eye_region_of_interest[1].y)]
         cozmo.annotate.add_polygon_to_image(image, roi, 1, blue)
 
 

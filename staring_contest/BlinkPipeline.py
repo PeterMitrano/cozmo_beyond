@@ -5,7 +5,7 @@ from enum import Enum
 
 class Pipeline:
     """This is a generated class from GRIP.
-    To use the pipeline first create a Pipeline instance and set the sources,
+    To use the pipeline first create a improved_pipeline instance and set the sources,
     next call the process method,
     finally get and use the outputs.
     """
@@ -15,30 +15,33 @@ class Pipeline:
         """
         self.__lastImage0 = numpy.ndarray([])
         self.__source0 = None
-        self.__desaturate_input = self.__source0
-        self.desaturate_output = None
 
-        self.__threshold_moving_image = self.desaturate_output
         self.threshold_moving_output = None
 
-        self.__cv_threshold_src = self.threshold_moving_output
-        self.__cv_threshold_thresh = 9.0
-        self.__cv_threshold_maxval = 100.0
+        self.__blur_input = self.threshold_moving_output
+        self.__blur_type = BlurType.Box_Blur
+        self.__blur_radius = 13.51351351351352
+        self.blur_output = None
+
+        self.__cv_threshold_src = self.blur_output
+        self.__cv_threshold_thresh = 4.0
+        self.__cv_threshold_maxval = 200.0
         self.__cv_threshold_type = cv2.THRESH_BINARY
         self.cv_threshold_output = None
 
-        self.__blur_input = self.cv_threshold_output
-        self.__blur_type = BlurType.Median_Filter
-        self.__blur_radius = 3.603603603603604
-        self.blur_output = None
-
-        self.__cv_adaptivethreshold_src = self.blur_output
+        self.__cv_adaptivethreshold_src = self.cv_threshold_output
         self.__cv_adaptivethreshold_maxvalue = 255.0
-        self.__cv_adaptivethreshold_adaptivemethod = cv2.ADAPTIVE_THRESH_MEAN_C
+        self.__cv_adaptivethreshold_adaptivemethod = cv2.ADAPTIVE_THRESH_GAUSSIAN_C
         self.__cv_adaptivethreshold_thresholdtype = cv2.THRESH_BINARY
-        self.__cv_adaptivethreshold_blocksize = 51.0
+        self.__cv_adaptivethreshold_blocksize = 127.0
         self.__cv_adaptivethreshold_c = 0.0
         self.cv_adaptivethreshold_output = None
+
+        self.__find_blobs_input = self.cv_adaptivethreshold_output
+        self.__find_blobs_min_area = 56.0
+        self.__find_blobs_circularity = [0.0, 1.0]
+        self.__find_blobs_dark_blobs = False
+        self.find_blobs_output = None
 
     
     def process(self):
@@ -46,25 +49,25 @@ class Pipeline:
         Sets outputs to new values.
         Requires all sources to be set.
         """
-        #Step Desaturate0:
-        self.__desaturate_input = self.__source0
-        (self.desaturate_output ) = self.__desaturate(self.__desaturate_input)
-
         #Step Threshold_Moving0:
-        self.__threshold_moving_image = self.desaturate_output
+        self.__threshold_moving_image = self.__source0
         (self.__lastImage0, self.threshold_moving_output ) = self.__threshold_moving(self.__threshold_moving_image, self.__lastImage0)
 
-        #Step CV_Threshold0:
-        self.__cv_threshold_src = self.threshold_moving_output
-        (self.cv_threshold_output ) = self.__cv_threshold(self.__cv_threshold_src, self.__cv_threshold_thresh, self.__cv_threshold_maxval, self.__cv_threshold_type)
-
         #Step Blur0:
-        self.__blur_input = self.cv_threshold_output
+        self.__blur_input = self.threshold_moving_output
         (self.blur_output ) = self.__blur(self.__blur_input, self.__blur_type, self.__blur_radius)
 
-        #Step CV_adaptiveThreshold0:
-        self.__cv_adaptivethreshold_src = self.blur_output
-        (self.cv_adaptivethreshold_output ) = self.__cv_adaptivethreshold(self.__cv_adaptivethreshold_src, self.__cv_adaptivethreshold_maxvalue, self.__cv_adaptivethreshold_adaptivemethod, self.__cv_adaptivethreshold_thresholdtype, self.__cv_adaptivethreshold_blocksize, self.__cv_adaptivethreshold_c)
+        #Step CV_Threshold0:
+        self.__cv_threshold_src = self.blur_output
+        (self.cv_threshold_output ) = self.__cv_threshold(self.__cv_threshold_src, self.__cv_threshold_thresh, self.__cv_threshold_maxval, self.__cv_threshold_type)
+
+        # #Step CV_adaptiveThreshold0:
+        # self.__cv_adaptivethreshold_src = self.cv_threshold_output
+        # (self.cv_adaptivethreshold_output ) = self.__cv_adaptivethreshold(self.__cv_adaptivethreshold_src, self.__cv_adaptivethreshold_maxvalue, self.__cv_adaptivethreshold_adaptivemethod, self.__cv_adaptivethreshold_thresholdtype, self.__cv_adaptivethreshold_blocksize, self.__cv_adaptivethreshold_c)
+        #
+        # #Step Find_Blobs0:
+        # self.__find_blobs_input = self.cv_adaptivethreshold_output
+        # (self.find_blobs_output ) = self.__find_blobs(self.__find_blobs_input, self.__find_blobs_min_area, self.__find_blobs_circularity, self.__find_blobs_dark_blobs)
 
     def set_source0(self, value):
         """Sets source0 to given value checking for correct type.
@@ -73,24 +76,6 @@ class Pipeline:
         self.__source0 = value
     
 
-
-    @staticmethod
-    def __desaturate(src):
-        """Converts a color image into shades of gray.
-        Args:
-            src: A color numpy.ndarray.
-        Returns:
-            A gray scale numpy.ndarray.
-        """
-        (a, b, channels) = src.shape
-        if(channels == 1):
-            return numpy.copy(src)
-        elif(channels == 3):
-            return cv2.cvtColor(src, cv2.COLOR_BGR2GRAY)
-        elif(channels == 4):
-        	return cv2.cvtColor(src, cv2.COLOR_BGRA2GRAY)
-        else:
-            raise Exception("Input to desaturate must have 1, 3 or 4 channels") 
 
     @staticmethod
     def __threshold_moving(input, last_image):
@@ -103,23 +88,10 @@ class Pipeline:
             A numpy.ndarray with the parts that are the same in black.
         """
         if (last_image.shape == input.shape):
-            output = cv2.absdiff(input, last_image)
+            output =  cv2.absdiff(input, last_image)
         else:
             output = numpy.ndarray(shape=input.shape, dtype=input.dtype)
         return input, output
-
-    @staticmethod
-    def __cv_threshold(src, thresh, max_val, type):
-        """Apply a fixed-level threshold to each array element in an image
-        Args:
-            src: A numpy.ndarray.
-            thresh: Threshold value.
-            max_val: Maximum value for THRES_BINARY and THRES_BINARY_INV.
-            type: Opencv enum.
-        Returns:
-            A black and white numpy.ndarray.
-        """
-        return cv2.threshold(src, thresh, max_val, type)[1]
 
     @staticmethod
     def __blur(src, type, radius):
@@ -144,6 +116,19 @@ class Pipeline:
             return cv2.bilateralFilter(src, -1, round(radius), round(radius))
 
     @staticmethod
+    def __cv_threshold(src, thresh, max_val, type):
+        """Apply a fixed-level threshold to each array element in an image
+        Args:
+            src: A numpy.ndarray.
+            thresh: Threshold value.
+            max_val: Maximum value for THRES_BINARY and THRES_BINARY_INV.
+            type: Opencv enum.
+        Returns:
+            A black and white numpy.ndarray.
+        """
+        return cv2.threshold(src, thresh, max_val, type)[1]
+
+    @staticmethod
     def __cv_adaptivethreshold(src, max_value, adaptive_method, threshold_type, block_size, c):
         """Applies an adaptive threshold to an array.
         Args:
@@ -158,6 +143,32 @@ class Pipeline:
         """
         return cv2.adaptiveThreshold(src, max_value, adaptive_method, threshold_type,
                         (int)(block_size + 0.5), c)
+
+    @staticmethod
+    def __find_blobs(input, min_area, circularity, dark_blobs):
+        """Detects groups of pixels in an image.
+        Args:
+            input: A numpy.ndarray.
+            min_area: The minimum blob size to be found.
+            circularity: The min and max circularity as a list of two numbers.
+            dark_blobs: A boolean. If true looks for black. Otherwise it looks for white.
+        Returns:
+            A list of KeyPoint.
+        """
+        params = cv2.SimpleBlobDetector_Params()
+        params.filterByColor = 1
+        params.blobColor = (0 if dark_blobs else 255)
+        params.minThreshold = 10
+        params.maxThreshold = 220
+        params.filterByArea = True
+        params.minArea = min_area
+        params.filterByCircularity = True
+        params.minCircularity = circularity[0]
+        params.maxCircularity = circularity[1]
+        params.filterByConvexity = False
+        params.filterByInertia = False
+        detector = cv2.SimpleBlobDetector_create(params)
+        return detector.detect(input)
 
 
 BlurType = Enum('BlurType', 'Box_Blur Gaussian_Blur Median_Filter Bilateral_Filter')

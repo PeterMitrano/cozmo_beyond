@@ -16,19 +16,19 @@ import pygame
 
 
 def length(v):
-    return sqrt(v[0]**2+v[1]**2)
+    return sqrt(v[0] ** 2 + v[1] ** 2)
 
 
 def dot_product(v, w):
-    return v[0]*w[0]+v[1]*w[1]
+    return v[0] * w[0] + v[1] * w[1]
 
 
-def determinant(v,w):
-    return v[0]*w[1]-v[1]*w[0]
+def determinant(v, w):
+    return v[0] * w[1] - v[1] * w[0]
 
 
 def inner_angle(v, w):
-    cosx = dot_product(v, w)/(length(v)*length(w))
+    cosx = dot_product(v, w) / (length(v) * length(w))
     rad = acos(cosx)  # in radians
     return rad
 
@@ -96,56 +96,9 @@ async def blink_cubes(cubes, color, count):
     await asyncio.sleep(0.1)
 
 
-async def look_for_three_cubes(robot: cozmo.robot.Robot, existing_cubes=[], play_anim=False, show_colors=True):
-    cubes_found = existing_cubes
-    cube_colors = 3 * [cozmo.lights.green_light]
-    cubes_count = len(cubes_found)
-    while True:
-        # check for cubes
-        # note this timeout means very little. If we see a cube and it's the wrong one,
-        # it will return immediately with cube = None, not wait for timeout.
-        cube = await robot.world.wait_for_observed_light_cube(timeout=5, include_existing=False)
-
-        # if we found something new, add it and tell friend
-        if cube not in cubes_found:
-            cubes_found.append(cube)
-
-            # indicate to friend that we found the blocks
-            if show_colors:
-                cube.set_light(cube_colors[cubes_count])
-            if play_anim:
-                found_block_anim = robot.play_anim_trigger(cozmo.anim.Triggers.BlockReact)  # pylint: disable=no-member
-                await found_block_anim.wait_for_completed()
-            cubes_count += 1
-
-        # we're done once we have all three (unique) cubes
-        if len(cubes_found) == 3:
-            state = States.READY_ANIM
-            return cubes_found
-
-    return None
-
-
-async def wait_for_three_cubes(robot: cozmo.robot.Robot, play_anim=False, show_colors=True):
-    cubes = []
-    look_around_gen = small_random_angle(-20, 20, 2)
-    while True:
-        try:
-            cubes = await asyncio.wait_for(
-                look_for_three_cubes(
-                    robot, existing_cubes=cubes, play_anim=play_anim, show_colors=show_colors), timeout=5)
-            return cubes
-        except asyncio.TimeoutError:
-            # tell friend we're confused and look around a bit
-            robot.abort_all_actions()
-            await robot.play_anim_trigger(cozmo.anim.Triggers.RollBlockRealign).wait_for_completed()
-            _, robot_angle = next(look_around_gen)
-            await robot.turn_in_place(degrees(robot_angle)).wait_for_completed()
-
-
 async def flip_motion(robot):
     await robot.set_lift_height(1, duration=0.2).wait_for_completed()
-    await robot.drive_wheels(40, 40, duration=1.2)
+    await robot.drive_wheels(40, 40, duration=1.4)
     await robot.drive_wheels(-70, -70)
     await robot.set_lift_height(0, duration=1.6).wait_for_completed()
     await robot.drive_wheels(-70, -70, duration=0.5)
@@ -175,129 +128,201 @@ async def flip_cube(robot, cube):
 
 async def quick_turn(robot, degrees):
     ''' uses hacky dead reckoning '''
-    robot.drive_wheels(-70, -70)
-    await asyncio.sleep(1)
+    duration = degrees * 1.2 + 5.0
+    robot.drive_wheels(-70, -70, duration=duration)
 
 
-async def run(sdk_conn):
-    robot = await sdk_conn.wait_for_robot()
-    print("BATTERY LEVEL: %f" % robot.battery_voltage)
+class CubeShuffle:
+    def __init__(self):
+        self.state = States.LOOKING_FOR_CUBES
+        self.visible_cube_count = 0
 
-    await robot.set_head_angle(degrees(0)).wait_for_completed()
-    await robot.set_lift_height(0, duration=0.2).wait_for_completed()
+        # if you don't touch the cubes, this is the lowest number you'll get (probably)
+        self.max_visible_cube_count = 300
 
-    # setup the audio
-    pygame.mixer.init()
-    pygame.mixer.music.load('assets/shuffling_music.wav')
+        self.correct_guess_rate = 0.0
 
-    correct_guess_rate = 0.40
+        # worst case we guess randomly
+        self.min_guess_rate = 0.33
+        self.robot = None
 
-    state = States.LOOKING_FOR_CUBES
-    cubes = []
-    non_friend_cubes = []
-    friend_cube = None
-    while True:
-        print(state)
-        if state == States.LOOKING_FOR_CUBES:
-            cubes = await wait_for_three_cubes(robot)
-            state = States.PICKING_CUBE
+    async def look_for_three_cubes(self, existing_cubes=[], play_anim=False, show_colors=True):
+        cubes_found = existing_cubes
+        cube_colors = 3 * [cozmo.lights.green_light]
+        cubes_count = len(cubes_found)
+        while True:
+            # check for cubes
+            # note this timeout means very little. If we see a cube and it's the wrong one,
+            # it will return immediately with cube = None, not wait for timeout.
+            cube = await self.robot.world.wait_for_observed_light_cube(timeout=5, include_existing=False)
 
-        elif state == States.PICKING_CUBE:
-            # friend picks the cube we're going to track
-            tap_events = []
-            for cube in cubes:
-                cube.start_light_chaser(cozmo.lights.blue_light)
-                tap_events.append(cube.wait_for_tap())
+            # if we found something new, add it and tell friend
+            if cube not in cubes_found:
+                cubes_found.append(cube)
 
-            tap_event = await cozmo.event.wait_for_first(*tap_events)
-            friend_cube = tap_event.obj
-            friend_cube.stop_light_chaser()
+                # indicate to friend that we found the blocks
+                if show_colors:
+                    cube.set_light(cube_colors[cubes_count])
+                if play_anim:
+                    found_block_anim = self.robot.play_anim_trigger(
+                        cozmo.anim.Triggers.BlockReact)  # pylint: disable=no-member
+                    await found_block_anim.wait_for_completed()
+                cubes_count += 1
 
-            # we've got the right one. turn the others off
-            for cube in cubes:
-                cube.stop_light_chaser()
-                cube.set_light(cozmo.lights.off_light)
+            # we're done once we have all three (unique) cubes
+            if len(cubes_found) == 3:
+                self.state = States.READY_ANIM
+                return cubes_found
 
-            # make the clubes blink so friend knows to start
-            await blink_cubes(cubes, cozmo.lights.green_light, 2)
+        return None
 
-            # prep work so guessing correct/incorrect is easy
-            cubes.remove(friend_cube)
-            friend_cube.set_light(cozmo.lights.blue_light)
-            non_friend_cubes = cubes
-            state = States.READY_ANIM
+    async def wait_for_three_cubes(self, play_anim=False, show_colors=True):
+        cubes = []
+        look_around_gen = small_random_angle(-20, 20, 2)
+        while True:
+            try:
+                cubes = await asyncio.wait_for(
+                    self.look_for_three_cubes(existing_cubes=cubes, play_anim=play_anim,
+                                              show_colors=show_colors), timeout=5)
+                return cubes
+            except asyncio.TimeoutError:
+                # tell friend we're confused and look around a bit
+                self.robot.abort_all_actions()
+                await self.robot.play_anim_trigger(cozmo.anim.Triggers.RollBlockRealign).wait_for_completed()
+                _, robot_angle = next(look_around_gen)
+                await self.robot.turn_in_place(degrees(robot_angle)).wait_for_completed()
 
-        elif state == States.READY_ANIM:
-            # tell friend we're ready with an animation, and by flashing the cubes
-            await robot.play_anim("anim_speedtap_findsplayer_01").wait_for_completed()
-            pygame.mixer.music.play()
-            for cube in cubes:
-                cube.set_light(cozmo.lights.white_light)
-            state = States.WATCHING
+    @cozmo.event.filter_handler(cozmo.objects.EvtObjectObserved,
+                                obj=lambda obj: isinstance(obj, cozmo.objects.LightCube))
+    def cube_observed_handler(self, evt, obj=None, tap_count=None, **kwargs):
+        if self.state == States.WATCHING:
+            self.visible_cube_count += 1
 
-        elif state == States.WATCHING:
-            # turn around a bit while we watch
-            look_around_gen = small_random_angle()
-            current_angle = 0
-            for i in range(3):
-                current_angle, robot_angle = next(look_around_gen)
-                await robot.turn_in_place(degrees(robot_angle)).wait_for_completed()
-            # turn back to center
-            await robot.turn_in_place(degrees(-current_angle)).wait_for_completed()
-            state = States.REFINDING_CUBES
+    async def run(self, sdk_conn):
+        self.robot = await sdk_conn.wait_for_robot()
+        print("BATTERY LEVEL: %f" % self.robot.battery_voltage)
 
-        elif state == States.REFINDING_CUBES:
-            # try to find the cubes again
-            # back up so we are more likely to see them
-            await robot.drive_straight(distance_mm(-40), speed_mmps(90)).wait_for_completed()
-            cubes = await wait_for_three_cubes(robot, show_colors=False)
-            # determine the order
-            state = States.GUESSING
+        # add handlers
+        self.robot.world.add_event_handler(cozmo.objects.EvtObjectObserved, self.cube_observed_handler)
 
-        elif state == States.GUESSING:
-            # show friend we're guessing
-            await robot.play_anim("anim_meetcozmo_lookface_02").wait_for_completed()
+        # setup the audio
+        pygame.mixer.init()
+        pygame.mixer.music.load('assets/shuffling_music.wav')
 
-            # pick a cube
-            if random.random() < correct_guess_rate:
-                guessed_cube = friend_cube
-                state = States.CORRECT
-            else:
-                guessed_cube = non_friend_cubes[random.randint(0, 1)]
-                state = States.INCORRECT
-            # go flip the cube
-            await flip_cube(robot, guessed_cube)
-            await asyncio.sleep(0.5)
+        cubes = []
+        non_friend_cubes = []
+        friend_cube = None
+        while True:
+            print(self.state)
+            if self.state == States.LOOKING_FOR_CUBES:
+                await self.robot.set_head_angle(degrees(0)).wait_for_completed()
+                await self.robot.set_lift_height(0, duration=0.2).wait_for_completed()
+                cubes = await self.wait_for_three_cubes()
+                self.state = States.PICKING_CUBE
 
-        elif state == States.INCORRECT:
-            for cube in cubes:
-                cube.set_light(cozmo.lights.red_light)
-            await robot.drive_wheels(-200, -200, duration=0.5)
-            await robot.play_anim("anim_reacttocliff_stuckleftside_01").wait_for_completed()
-            state = States.DONE
+            elif self.state == States.PICKING_CUBE:
+                # friend picks the cube we're going to track
+                tap_events = []
+                for cube in cubes:
+                    cube.start_light_chaser(cozmo.lights.blue_light)
+                    tap_events.append(cube.wait_for_tap())
 
-        elif state == States.CORRECT:
-            for cube in cubes:
-                cube.start_light_chaser(cozmo.lights.green_light)
-            await robot.play_anim("anim_speedtap_wingame_intensity02_01").wait_for_completed()
-            for cube in cubes:
-                cube.stop_light_chaser()
-            state = States.DONE
+                tap_event = await cozmo.event.wait_for_first(*tap_events)
+                friend_cube = tap_event.obj
+                friend_cube.stop_light_chaser()
 
-        elif state == States.DONE:
-            print("PRESS ENTER TO PLAY AGAIN, press q then enter to quit")
-            key = input()
-            if key == 'q':
-                await asyncio.sleep(1)
-                return
-            else:
-                await asyncio.sleep(1)
-                state = States.LOOKING_FOR_CUBES
+                # we've got the right one. turn the others off
+                for cube in cubes:
+                    cube.stop_light_chaser()
+                    cube.set_light(cozmo.lights.off_light)
+
+                # make the clubes blink so friend knows to start
+                await blink_cubes(cubes, cozmo.lights.green_light, 2)
+
+                # prep work so guessing correct/incorrect is easy
+                cubes.remove(friend_cube)
+                friend_cube.set_light(cozmo.lights.blue_light)
+                non_friend_cubes = cubes
+                self.state = States.READY_ANIM
+
+            elif self.state == States.READY_ANIM:
+                # tell friend we're ready with an animation, and by flashing the cubes
+                await self.robot.play_anim("anim_speedtap_findsplayer_01").wait_for_completed()
+                pygame.mixer.music.play()
+                self.visible_cube_count = 0
+                self.state = States.WATCHING
+
+            elif self.state == States.WATCHING:
+                # turn around a bit while we watch
+                look_around_gen = small_random_angle()
+                current_angle = 0
+                for i in range(3):
+                    current_angle, robot_angle = next(look_around_gen)
+                    await self.robot.turn_in_place(degrees(robot_angle)).wait_for_completed()
+                # turn back to center
+                await self.robot.turn_in_place(degrees(-current_angle)).wait_for_completed()
+
+                self.correct_guess_rate = min(1, self.min_guess_rate + self.visible_cube_count / self.max_visible_cube_count)
+                print(self.correct_guess_rate)
+                self.visible_cube_count = 0
+                self.state = States.WATCHING
+                self.state = States.REFINDING_CUBES
+
+            elif self.state == States.REFINDING_CUBES:
+                # try to find the cubes again
+                # back up so we are more likely to see them
+                await self.robot.drive_straight(distance_mm(-40), speed_mmps(90)).wait_for_completed()
+                cubes = await self.wait_for_three_cubes(show_colors=False)
+                # determine the order
+                self.state = States.GUESSING
+
+            elif self.state == States.GUESSING:
+                # show friend we're guessing
+                await self.robot.play_anim("anim_meetcozmo_lookface_02").wait_for_completed()
+
+                # pick a cube
+                if random.random() < self.correct_guess_rate and friend_cube:
+                    guessed_cube = friend_cube
+                    self.state = States.CORRECT
+                else:
+                    guessed_cube = non_friend_cubes[random.randint(0, 1)]
+                    self.state = States.INCORRECT
+                # go flip the cube
+                await flip_cube(self.robot, guessed_cube)
+                await asyncio.sleep(0.5)
+
+            elif self.state == States.INCORRECT:
+                for cube in cubes:
+                    cube.set_light(cozmo.lights.red_light)
+                await self.robot.drive_wheels(-200, -200, duration=0.5)
+                await self.robot.play_anim("anim_reacttocliff_stuckleftside_01").wait_for_completed()
+                self.state = States.DONE
+
+            elif self.state == States.CORRECT:
+                for cube in cubes:
+                    cube.start_light_chaser(cozmo.lights.green_light)
+                await self.robot.play_anim("anim_speedtap_wingame_intensity02_01").wait_for_completed()
+                for cube in cubes:
+                    cube.stop_light_chaser()
+                self.state = States.DONE
+
+            elif self.state == States.DONE:
+                print("PRESS ENTER TO PLAY AGAIN, press q then enter to quit")
+                key = input()
+                if key == 'q':
+                    await asyncio.sleep(1)
+                    return
+                else:
+                    await asyncio.sleep(1)
+                    self.state = States.LOOKING_FOR_CUBES
+
 
 if __name__ == '__main__':
+    cozmo.robot.Robot.drive_off_charger_on_connect = False
     cozmo.setup_basic_logging()
 
     try:
-        cozmo.connect(run)
+        cs = CubeShuffle()
+        cozmo.connect(cs.run)
     except cozmo.ConnectionError as e:
         sys.exit("A connection error occurred: %s" % e)

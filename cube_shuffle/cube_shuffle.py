@@ -126,10 +126,15 @@ async def flip_cube(robot, cube):
     return
 
 
-async def quick_turn(robot, degrees):
+def find_center_cube(cubes):
+    sorted_cubes = sorted(cubes, key=lambda c: c.pose.position.y)
+    return sorted_cubes[1]
+
+
+async def quick_turn(robot, deg):
     ''' uses hacky dead reckoning '''
-    duration = degrees * 1.2 + 5.0
-    robot.drive_wheels(-70, -70, duration=duration)
+    duration = deg * 1.2 + 5.0
+    await robot.drive_wheels(-70, -70, duration=duration)
 
 
 class CubeShuffle:
@@ -148,13 +153,13 @@ class CubeShuffle:
 
     async def look_for_three_cubes(self, existing_cubes=[], play_anim=False, show_colors=True):
         cubes_found = existing_cubes
-        cube_colors = 3 * [cozmo.lights.green_light]
+        cube_colors = 3 * [cozmo.lights.white_light]
         cubes_count = len(cubes_found)
         while True:
             # check for cubes
             # note this timeout means very little. If we see a cube and it's the wrong one,
             # it will return immediately with cube = None, not wait for timeout.
-            cube = await self.robot.world.wait_for_observed_light_cube(timeout=5, include_existing=False)
+            cube = await self.robot.world.wait_for_observed_light_cube(timeout=1, include_existing=False)
 
             # if we found something new, add it and tell friend
             if cube not in cubes_found:
@@ -178,7 +183,7 @@ class CubeShuffle:
 
     async def wait_for_three_cubes(self, play_anim=False, show_colors=True):
         cubes = []
-        look_around_gen = small_random_angle(-20, 20, 2)
+        look_around_gen = small_random_angle(-40, 40, 5)
         while True:
             try:
                 cubes = await asyncio.wait_for(
@@ -188,7 +193,6 @@ class CubeShuffle:
             except asyncio.TimeoutError:
                 # tell friend we're confused and look around a bit
                 self.robot.abort_all_actions()
-                await self.robot.play_anim_trigger(cozmo.anim.Triggers.RollBlockRealign).wait_for_completed()
                 _, robot_angle = next(look_around_gen)
                 await self.robot.turn_in_place(degrees(robot_angle)).wait_for_completed()
 
@@ -215,9 +219,15 @@ class CubeShuffle:
         while True:
             print(self.state)
             if self.state == States.LOOKING_FOR_CUBES:
+                await self.robot.play_anim("anim_explorer_driving01_end_01").wait_for_completed()
                 await self.robot.set_head_angle(degrees(0)).wait_for_completed()
                 await self.robot.set_lift_height(0, duration=0.2).wait_for_completed()
                 cubes = await self.wait_for_three_cubes()
+
+                # point to face the center cube
+                center_cube = find_center_cube(cubes)
+                angle = radians(angle_to_cube(self.robot.pose, center_cube))
+                await self.robot.turn_in_place(angle).wait_for_completed()
                 self.state = States.PICKING_CUBE
 
             elif self.state == States.PICKING_CUBE:
@@ -248,6 +258,7 @@ class CubeShuffle:
             elif self.state == States.READY_ANIM:
                 # tell friend we're ready with an animation, and by flashing the cubes
                 await self.robot.play_anim("anim_speedtap_findsplayer_01").wait_for_completed()
+
                 pygame.mixer.music.play()
                 self.visible_cube_count = 0
                 self.state = States.WATCHING
@@ -259,10 +270,12 @@ class CubeShuffle:
                 for i in range(3):
                     current_angle, robot_angle = next(look_around_gen)
                     await self.robot.turn_in_place(degrees(robot_angle)).wait_for_completed()
+                    await self.robot.play_anim("anim_explorer_driving01_end_01").wait_for_completed()
                 # turn back to center
                 await self.robot.turn_in_place(degrees(-current_angle)).wait_for_completed()
 
-                self.correct_guess_rate = min(1, self.min_guess_rate + self.visible_cube_count / self.max_visible_cube_count)
+                shuffle_guess_rate = self.min_guess_rate + self.visible_cube_count / self.max_visible_cube_count
+                self.correct_guess_rate = min(1, shuffle_guess_rate)
                 print(self.correct_guess_rate)
                 self.visible_cube_count = 0
                 self.state = States.WATCHING

@@ -1,5 +1,4 @@
-#!/usr/bin/python3
-
+#!python3
 import cv2
 import os
 import tensorflow as tf

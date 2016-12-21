@@ -1,12 +1,9 @@
-#!python3
-
-import cv2
+import pickle
+import sys
 import os
 import tensorflow as tf
 
 if __name__ == "__main__":
-    cap = cv2.VideoCapture(0)
-
     # grab one frame in order to get dimensions
     camera_w = 480
     camera_h = 640
@@ -26,18 +23,18 @@ if __name__ == "__main__":
 
     # setup test/train data directory
     if not os.path.exists('data'):
-        os.mkdir('data')
+        sys.exit('no data directory')
 
-    for i in range(1000):
-        ret, frame = cap.read()
-        gray = cv2.cvtColor(frame, cv2.COLOR_BGR2GRAY)
+    input_data = pickle.load(open('labels.pkl', 'rb'))
+    print(input_data['size'])
 
-        input_data = gray
-        # correct_y_data = label
-        # sess.run(train_step, feed_dict={x: input_data, correct_y: correct_y_data})
-
-        cv2.imwrite('data/frame_' + str(i) + '.png', gray)
-
-    # When everything done, release the capture
-    cap.release()
-    cv2.destroyAllWindows()
+    for i in range(10000):
+        batch_x = []
+        batch_y = []
+        for i in range(input_data['size']):
+            batch_y[''] = input_data['data'][i]
+        loss, acc = sess.run(train_step, feed_dict={x: batch_x, correct_y: batch_y})
+        print("Iter " + str(i) + ", Minibatch Loss= " + \
+              "{:.6f}".format(loss) + ", Training Accuracy= " + \
+              "{:.5f}".format(acc))
+        pass

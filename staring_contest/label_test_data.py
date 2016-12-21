@@ -1,4 +1,4 @@
-#!/usr/bin/python3
+#!python3
 
 import os
 import sys
@@ -16,7 +16,7 @@ if __name__ == "__main__":
         print(filename)
         data = cv2.imread(filename)
         cv2.imshow('data', data)
-        cv2.waitKey(1)
+        cv2.waitKey(2)
         is_blink = input('?: ')
         if is_blink == '':
             is_blink = last_response

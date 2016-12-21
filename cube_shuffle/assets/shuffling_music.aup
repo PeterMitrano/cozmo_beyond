@@ -1,30 +1,36 @@
 <?xml version="1.0" standalone="no" ?>
 <!DOCTYPE project PUBLIC "-//audacityproject-1.3.0//DTD//EN" "http://audacity.sourceforge.net/xml/audacityproject-1.3.0.dtd" >
-<project xmlns="http://audacity.sourceforge.net/xml/" projname="shuffling_music_data" version="1.3.0" audacityversion="2.0.5" sel0="0.0000000000" sel1="0.0000000000" vpos="0" h="0.0000000000" zoom="127.7451657459" rate="48000.0">
+<project xmlns="http://audacity.sourceforge.net/xml/" projname="shuffling_music_data" version="1.3.0" audacityversion="2.0.5" sel0="0.0000000000" sel1="0.0000000000" vpos="0" h="3.2016867144" zoom="127.7451657459" rate="48000.0">
 	<tags>
 		<tag name="COMMENTS" value="converted by convert2mp3.net"/>
 	</tags>
-	<wavetrack name="Thinking Tone 31 Sound Effect" channel="0" linked="1" mute="0" solo="0" height="150" minimized="0" isSelected="0" rate="44100" gain="1.0" pan="0.0">
+	<wavetrack name="Thinking Tone 31 Sound Effect" channel="0" linked="1" mute="0" solo="0" height="150" minimized="0" isSelected="1" rate="44100" gain="1.0" pan="0.0">
 		<waveclip offset="0.00000000">
-			<sequence maxsamples="262144" sampleformat="262159" numsamples="370074">
+			<sequence maxsamples="262144" sampleformat="262159" numsamples="456724">
 				<waveblock start="0">
 					<simpleblockfile filename="e0003994.au" len="183786" min="-0.289929" max="0.219482" rms="0.058841"/>
 				</waveblock>
 				<waveblock start="183786">
-					<simpleblockfile filename="e000302b.au" len="186288" min="-0.289602" max="0.219482" rms="0.057434"/>
+					<simpleblockfile filename="e000312f.au" len="136469" min="-0.289602" max="0.219482" rms="0.054165"/>
+				</waveblock>
+				<waveblock start="320255">
+					<simpleblockfile filename="e00037cd.au" len="136469" min="-0.288229" max="0.219482" rms="0.045412"/>
 				</waveblock>
 			</sequence>
 			<envelope numpoints="0"/>
 		</waveclip>
 	</wavetrack>
-	<wavetrack name="Thinking Tone 31 Sound Effect" channel="1" linked="0" mute="0" solo="0" height="150" minimized="0" isSelected="0" rate="44100" gain="1.0" pan="0.0">
+	<wavetrack name="Thinking Tone 31 Sound Effect" channel="1" linked="0" mute="0" solo="0" height="150" minimized="0" isSelected="1" rate="44100" gain="1.0" pan="0.0">
 		<waveclip offset="0.00000000">
-			<sequence maxsamples="262144" sampleformat="262159" numsamples="370074">
+			<sequence maxsamples="262144" sampleformat="262159" numsamples="456724">
 				<waveblock start="0">
 					<simpleblockfile filename="e0003282.au" len="183786" min="-0.289929" max="0.219482" rms="0.058841"/>
 				</waveblock>
 				<waveblock start="183786">
-					<simpleblockfile filename="e0003651.au" len="186288" min="-0.289602" max="0.219482" rms="0.057434"/>
+					<simpleblockfile filename="e00038cc.au" len="136469" min="-0.289602" max="0.219482" rms="0.054165"/>
+				</waveblock>
+				<waveblock start="320255">
+					<simpleblockfile filename="e0003162.au" len="136469" min="-0.288229" max="0.219482" rms="0.045412"/>
 				</waveblock>
 			</sequence>
 			<envelope numpoints="0"/>

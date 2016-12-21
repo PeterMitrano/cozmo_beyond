@@ -142,8 +142,9 @@ class CubeShuffle:
         self.state = States.LOOKING_FOR_CUBES
         self.visible_cube_count = 0
 
-        # if you don't touch the cubes, this is the lowest number you'll get (probably)
-        self.max_visible_cube_count = 300
+        # if you don't touch the cubes, this is the highest number you'll get (probably)
+
+        self.max_visible_cube_count = 350
 
         self.correct_guess_rate = 0.0
 
@@ -274,9 +275,9 @@ class CubeShuffle:
                 # turn back to center
                 await self.robot.turn_in_place(degrees(-current_angle)).wait_for_completed()
 
-                shuffle_guess_rate = self.min_guess_rate + self.visible_cube_count / self.max_visible_cube_count
+                shuffle_guess_rate = max(self.min_guess_rate, self.visible_cube_count / self.max_visible_cube_count)
                 self.correct_guess_rate = min(1, shuffle_guess_rate)
-                print(self.correct_guess_rate)
+                print(self.correct_guess_rate, self.visible_cube_count)
                 self.visible_cube_count = 0
                 self.state = States.WATCHING
                 self.state = States.REFINDING_CUBES

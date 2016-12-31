@@ -64,7 +64,7 @@ class RL:
             input()
             self.success_event.set()
 
-    async def run(self, robot:cozmo.robot.Robot):
+    async def run(self, robot: cozmo.robot.Robot):
         self.robot = robot
         self.robot.camera.image_stream_enabled = True
         print("BATTERY LEVEL: %f" % self.robot.battery_voltage)

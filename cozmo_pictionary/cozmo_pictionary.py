@@ -96,9 +96,4 @@ def run(sdk_conn):
 
 
 if __name__ == '__main__':
-    cozmo.setup_basic_logging()
-
-    try:
-        cozmo.connect(run)
-    except cozmo.ConnectionError as e:
-        sys.exit("A connection error occurred: %s" % e)
+    cozmo.run_program(run)

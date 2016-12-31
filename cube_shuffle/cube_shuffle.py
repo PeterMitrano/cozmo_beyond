@@ -333,10 +333,5 @@ class CubeShuffle:
 
 if __name__ == '__main__':
     cozmo.robot.Robot.drive_off_charger_on_connect = False
-    cozmo.setup_basic_logging()
-
-    try:
-        cs = CubeShuffle()
-        cozmo.connect(cs.run)
-    except cozmo.ConnectionError as e:
-        sys.exit("A connection error occurred: %s" % e)
+    cs = CubeShuffle()
+    cozmo.run_program(cs.run)

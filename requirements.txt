@@ -1,5 +1,5 @@
 astroid==1.4.8
-cozmo==0.9.0
+cozmo==0.10.0
 cozmoclad==1.1.0
 isort==4.2.5
 lazy-object-proxy==1.2.2

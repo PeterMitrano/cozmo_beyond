@@ -43,7 +43,7 @@ class Xylophone:
                 cube_id = cube.object_id
                 pitch = note_map[cube_id]
                 txt = 'ooooooooooooooooooooooooooooooooo'
-                await robot.say_text(txt, duration_scalar=0.01, voice_pitch=pitch).wait_for_completed()
+                await robot.say_text(txt, duration_scalar=0.04, voice_pitch=pitch).wait_for_completed()
                 self.tap_queue.task_done()
             except queue.Empty:
                 pass

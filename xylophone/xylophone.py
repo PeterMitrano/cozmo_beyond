@@ -30,20 +30,20 @@ class Xylophone:
 
         cubes = robot.world.light_cubes.values()
         note_map = {}
-        notes = [0.2, 0.6, 1]
+        notes = [0.15, 0.55, 1]
         for cube, note in zip(cubes, notes):
             cube.set_lights(cozmo.lights.white_light)
             note_map[cube.object_id] = note
 
         while True:
             # wait for cube tap
-            await asyncio.sleep(0.1)
+            await asyncio.sleep(0.05)
             try:
                 cube = self.tap_queue.get_nowait()
                 cube_id = cube.object_id
                 pitch = note_map[cube_id]
                 txt = 'ooooooooooooooooooooooooooooooooo'
-                await robot.say_text(txt, duration_scalar=0.04, voice_pitch=pitch).wait_for_completed()
+                await robot.say_text(txt, duration_scalar=0.1, use_cozmo_voice=False, voice_pitch=pitch).wait_for_completed()
                 self.tap_queue.task_done()
             except queue.Empty:
                 pass

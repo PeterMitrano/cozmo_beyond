@@ -203,8 +203,8 @@ class CubeShuffle:
         if self.state == States.WATCHING:
             self.visible_cube_count += 1
 
-    async def run(self, sdk_conn):
-        self.robot = await sdk_conn.wait_for_robot()
+    async def run(self, robot: cozmo.robot.Robot):
+        self.robot = robot
         print("BATTERY LEVEL: %f" % self.robot.battery_voltage)
 
         # add handlers

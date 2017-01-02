@@ -2,6 +2,7 @@ import queue
 from cube_shuffle import BlinkyCube
 import asyncio
 import cozmo
+import time
 
 
 # Make sure World knows how to instantiate the subclass
@@ -17,12 +18,13 @@ class Xylophone:
     async def tap_handler(self, evt, obj=None, tap_count=None, **kwargs):
         cube = evt.obj
         cube.set_lights(cozmo.lights.blue_light)
-        await asyncio.sleep(0.1)
+        await asyncio.sleep(0.05)
         cube.set_lights(cozmo.lights.white_light)
-        self.tap_queue.put(cube)
+        self.tap_queue.put((time.time(), cube))
 
     async def run(self, robot: cozmo.robot.Robot):
         self.robot = robot
+        robot.world.enable_block_tap_filter(False)
         print("BATTERY LEVEL: %f" % self.robot.battery_voltage)
 
         # add handlers
@@ -39,11 +41,12 @@ class Xylophone:
             # wait for cube tap
             await asyncio.sleep(0.05)
             try:
-                cube = self.tap_queue.get_nowait()
+                time, cube = self.tap_queue.get_nowait()
                 cube_id = cube.object_id
                 pitch = note_map[cube_id]
-                txt = 'ooooooooooooooooooooooooooooooooo'
-                await robot.say_text(txt, duration_scalar=0.1, use_cozmo_voice=False, voice_pitch=pitch).wait_for_completed()
+                txt = 'ooooooooooooooooooooooo'
+                print(time, pitch)
+                await robot.say_text(txt, duration_scalar=0.08, voice_pitch=pitch).wait_for_completed()
                 self.tap_queue.task_done()
             except queue.Empty:
                 pass

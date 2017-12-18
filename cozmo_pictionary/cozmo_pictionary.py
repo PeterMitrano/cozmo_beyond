@@ -1,10 +1,8 @@
 #!/usr/bin/env python3
-'''Cozmo Pictionary'''
+"""Cozmo Pictionary"""
 
-import sys
-from cozmo.util import degrees, distance_mm, speed_mmps
-import asyncio
 import cozmo
+from cozmo.util import degrees, distance_mm, speed_mmps
 
 
 class States:

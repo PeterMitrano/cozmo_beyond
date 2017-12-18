@@ -1,9 +1,10 @@
-import queue
-from cube_shuffle import BlinkyCube
 import asyncio
-import cozmo
+import queue
 import time
 
+import cozmo
+
+from cube_shuffle import BlinkyCube
 
 # Make sure World knows how to instantiate the subclass
 cozmo.world.World.light_cube_factory = BlinkyCube
@@ -50,7 +51,6 @@ class Xylophone:
                 self.tap_queue.task_done()
             except queue.Empty:
                 pass
-
 
 
 if __name__ == "__main__":

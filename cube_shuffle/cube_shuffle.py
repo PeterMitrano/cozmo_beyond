@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-'''Cozmo Shuffle'''
+"""Cozmo Shuffle"""
 
 import random
 import sys
@@ -132,7 +132,7 @@ def find_center_cube(cubes):
 
 
 async def quick_turn(robot, deg):
-    ''' uses hacky dead reckoning '''
+    """ uses hacky dead reckoning """
     duration = deg * 1.2 + 5.0
     await robot.drive_wheels(-70, -70, duration=duration)
 

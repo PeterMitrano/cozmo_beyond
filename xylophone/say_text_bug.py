@@ -1,6 +1,7 @@
 #!/usr/bin/python3.5
 import cozmo
 
+
 def run(robot):
     txt = 'ooooooooo'
     robot.say_text(txt, duration_scalar=0.04).wait_for_completed()

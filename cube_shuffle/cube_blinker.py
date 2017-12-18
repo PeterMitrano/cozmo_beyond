@@ -1,11 +1,13 @@
-from collections import deque
 import asyncio
+from collections import deque
+
 import cozmo
 
 cozmo.lights.rainbow_light = cozmo.lights.Color(name='rainbow')
 
+
 class BlinkyCube(cozmo.objects.LightCube):
-    '''Subclass LightCube and add a light-chaser effect.
+    """Subclass LightCube and add a light-chaser effect.
 
     # EXAMPLE USAGE
     # cube.start_light_chaser()
@@ -18,7 +20,7 @@ class BlinkyCube(cozmo.objects.LightCube):
     # finally:
     #     cube.stop_light_chaser()
     #     cube.set_lights_off()
-    '''
+    """
 
     def __init__(self, *a, **kw):
         super().__init__(*a, **kw)
@@ -35,6 +37,7 @@ class BlinkyCube(cozmo.objects.LightCube):
                 self.set_lights(cozmo.lights.off_light)
                 await asyncio.sleep(period_seconds, loop=self._loop)
                 self.set_lights(light_color)
+
         self._chaser = asyncio.ensure_future(_blink(), loop=self._loop)
 
     async def blink_once(self, light_color):
@@ -47,9 +50,9 @@ class BlinkyCube(cozmo.objects.LightCube):
         self.set_lights(self.current_light)
 
     def start_light_chaser(self, light_color):
-        '''Cycles the lights around the cube with 1 corner lit up,
+        """Cycles the lights around the cube with 1 corner lit up,
         changing to the next corner every time step
-        '''
+        """
         if self._chaser:
             raise ValueError("Light chaser already running")
 
@@ -71,7 +74,7 @@ class BlinkyCube(cozmo.objects.LightCube):
 
         async def _chaser():
             rainbow = deque([cozmo.lights.red_light, cozmo.lights.blue_light, cozmo.lights.green_light,
-                       cozmo.lights.white_light])
+                             cozmo.lights.white_light])
             self.current_light = cozmo.lights.rainbow_light
             while True:
                 rainbow.rotate()

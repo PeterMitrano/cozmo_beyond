@@ -1,13 +1,10 @@
-import threading
-import asyncio
-import os
 import pickle
+import threading
 from collections import namedtuple
-from cozmo.util import degrees
-import sys
+
 import cozmo
 import numpy as np
-
+from cozmo.util import degrees
 
 Action = namedtuple('Action', ['lift', 'wheels', 'head'])
 State = namedtuple('State', ['dx', 'dy', 'dz', 'd_angle', 'head', 'lift'])
@@ -39,9 +36,9 @@ class RL:
         for lw in [-50, 0, 50]:
             for rw in [-50, 0, 50]:
                 # for h in range(min_head, max_head + head_step, head_step):
-                    for l in range(min_lift, max_lift + lift_step, lift_step):
-                        action = Action(lift=l, wheels=(lw, rw), head=0)
-                        self.actions.append(action)
+                for l in range(min_lift, max_lift + lift_step, lift_step):
+                    action = Action(lift=l, wheels=(lw, rw), head=0)
+                    self.actions.append(action)
 
         # the states array is dynamically sized (woah fancy!)
         self.states = []
@@ -175,7 +172,8 @@ class RL:
         dx = abs(self.robot.pose.position.x - self.cube.pose.position.x) // self.x_step
         dy = abs(self.robot.pose.position.y - self.cube.pose.position.y) // self.y_step
         dz = abs(self.robot.pose.position.z - self.cube.pose.position.z) // self.z_step
-        d_angle = abs(self.robot.pose.rotation.angle_z.radians - self.cube.pose.rotation.angle_z.radians) // self.angle_step
+        d_angle = abs(
+            self.robot.pose.rotation.angle_z.radians - self.cube.pose.rotation.angle_z.radians) // self.angle_step
         head = abs(self.robot.head_angle.degrees) // self.head_step
         lift = abs(self.robot.lift_height.distance_mm) // self.lift_step
         new_state = State(dx=dx, dy=dy, dz=dz, d_angle=d_angle, head=head, lift=lift)
@@ -192,7 +190,7 @@ class RL:
 
         # manual reward function
         euler_distance = np.hypot(dx, dy)
-        reward += 1 / (1 + euler_distance**2)
+        reward += 1 / (1 + euler_distance ** 2)
 
         try:
             result = (self.states.index(new_state), reward, done)
@@ -204,8 +202,8 @@ class RL:
         finally:
             return result
 
+
 if __name__ == '__main__':
     cozmo.robot.Robot.drive_off_charger_on_connect = False
     rl = RL()
     cozmo.run_program(rl.run)
-

@@ -1,3 +1,5 @@
+*.avi
+
 .idea
 venv
 __pycache__
